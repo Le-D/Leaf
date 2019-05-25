@@ -15,6 +15,9 @@ def findLeaf(leafImage):
     imContourLeaf = imOriginal.copy()
     imContourLeafY = imOriginal.copy()
     imContourLeafX = imOriginal.copy()
+    imHullConvex = imOriginal.copy()
+
+
     
     dataStr = ""
 
@@ -29,9 +32,9 @@ def findLeaf(leafImage):
     ret,imContourLeaf = cv2.threshold(imContourLeaf,160,255,0)
     #cv2.imwrite("imContourLeafThresh.jpg",imContourLeaf)
 
-    imContourLeaf = cv2.erode(imContourLeaf, None, iterations=4)
+    imContourLeaf = cv2.erode(imContourLeaf, None, iterations=7)
     #cv2.imwrite("imContourLeafErode.jpg",imContourLeaf)
-    imContourLeaf = cv2.dilate(imContourLeaf, None, iterations=4)
+    imContourLeaf = cv2.dilate(imContourLeaf, None, iterations=7)
     #cv2.imwrite("imContourLeafDilate.jpg",imContourLeaf)
 
     imContourLeaf = cv2.bitwise_not(imContourLeaf)
@@ -39,6 +42,9 @@ def findLeaf(leafImage):
 
     imLeafY = imContourLeaf.copy()
     imLeafX = imContourLeaf.copy()
+    
+    imContourHullConvex = imContourLeaf.copy()
+
     
 ####Pre-processiong end
 
@@ -59,12 +65,20 @@ def findLeaf(leafImage):
     area = cv2.contourArea(cnt)
     perimeter = cv2.arcLength(cnt,True)
     
-    perimeter = round(perimeter,2)
+    perimeter = round(perimeter,6)
 
+    ratioPeri_Area = perimeter/area
+    
+    ratioPeri_Area = round(ratioPeri_Area,6)
+    
+
+    dataStr += str(area)+"\t"
+    dataStr += str(perimeter)+"\t"
+    dataStr += str(ratioPeri_Area)+"\t"
+    
     print ("Leaf area :", area)
     print ("Leaf perimeter :", perimeter)
-    
-    dataStr += str(area)+"\t"+str(perimeter)
+    print ("Ratio Perimeter/Area :", ratioPeri_Area)
 
     #cv2.imwrite("leafboundingRect.jpg",imOriginal)
     
@@ -102,9 +116,9 @@ def findLeaf(leafImage):
         
         valY.append(h)
         
-        dataStr += str(h)+"\t"
+        #dataStr += str(h)+"\t"
         
-    print ("Y-segment list : ", valY)
+    #print ("Y-segment list : ", valY)
 
     largest_area = 0
     second_area = 0
@@ -156,10 +170,10 @@ def findLeaf(leafImage):
         
         valX.append(w)
         
-        dataStr += str(w)+"\t"
+        #dataStr += str(w)+"\t"
 
         
-    print ("X-segment list : ", valX)
+    #print ("X-segment list : ", valX)
     
     
     largest_area = 0
@@ -188,6 +202,86 @@ def findLeaf(leafImage):
     #cv2.imwrite("imLeafX.jpg",imLeafX)
     
 ####Segment on x-axis end
+    
+####Segment on Hullconvex start
+    
+    #imContourHullConvex
+    
+    #img_gray = cv2.cvtColor(imContourHullConvex,cv2.COLOR_BGR2GRAY)
+    
+    #ret,img_gray = cv2.threshold(img_gray,160,255,0)
+    
+
+    cv2.imshow('Ori',imContourHullConvex)
+
+    _,contours,hierarchy = cv2.findContours(imContourHullConvex,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    
+    countDefects = 0
+
+    for cnt in contours:
+        hull = cv2.convexHull(cnt)
+        #cv2.drawContours(imHullConvex,[cnt],0,(0,255,0),2)   # draw contours in green color
+        cv2.drawContours(imHullConvex,[hull],0,(0,255,255),2)  # draw contours in red color
+        
+        areaHull = cv2.contourArea(hull)
+        #print("Hull area: ",areaHull)
+
+        perimeterHull = cv2.arcLength(hull,True)
+        #print("Hull perimeter: ",perimeterHull)
+        
+        ratioHull_Peri_Area = perimeterHull/areaHull
+        #print("Ratio Hull: ",ratioHull_Peri_Area)
+
+        
+        cnt = cv2.approxPolyDP(cnt,0.01*cv2.arcLength(cnt,True),True)
+        hull = cv2.convexHull(cnt,returnPoints = False)
+        
+        defects = cv2.convexityDefects(cnt,hull)
+        
+
+        if defects is not None:
+
+            for i in range(defects.shape[0]):
+                            
+                s,e,f,d = defects[i,0]
+                start = tuple(cnt[s][0])
+                end = tuple(cnt[e][0])
+                far = tuple(cnt[f][0])
+                cv2.line(imHullConvex,start,end,[0,255,0],2)
+                cv2.circle(imHullConvex,far,5,[0,0,255],-1)
+                
+                countDefects +=1
+                
+        else:
+            defects = 0
+
+    perimeterHull = round(perimeterHull,6)
+    ratioHull_Peri_Area = round(ratioHull_Peri_Area,6)
+              
+    print ("Convexity: ",countDefects)
+    
+    print("Hull area: ",areaHull)
+    print("Hull perimeter: ",perimeterHull)
+    print("Ratio Hull: ",ratioHull_Peri_Area)
+    
+    
+
+    
+    dataStr += str(countDefects)+"\t"
+    
+    dataStr += str(areaHull)+"\t"
+    dataStr += str(perimeterHull)+"\t"
+    dataStr += str(ratioHull_Peri_Area)+"\t"
+
+    cv2.imshow('HullConvex',imHullConvex)
+
+        
+    
+    
+	
+
+    
+####Segment on Hullconvex end
  
     #return l_index
     
@@ -223,5 +317,5 @@ while leafNum < 50:
 
 
 
-#cv2.waitKey(0)
-#cv2.destroyAllWindows()
+cv2.waitKey(0)
+cv2.destroyAllWindows()
